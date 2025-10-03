@@ -1,0 +1,41 @@
+name: BigCommerce webhook test
+
+on:
+  repository_dispatch:
+    types: [bigcommerce_webhook]   # must match what the relay sends
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  show:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Log payload to run summary
+        run: |
+          echo "## BigCommerce webhook received" >> $GITHUB_STEP_SUMMARY
+          echo "Scope: ${{ github.event.client_payload.scope }}" >> $GITHUB_STEP_SUMMARY
+          echo '```json' >> $GITHUB_STEP_SUMMARY
+          echo '${{ toJson(github.event.client_payload) }}' >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Create an issue so it's obvious it worked
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const p = context.payload.client_payload || {};
+            const title = `BC webhook: ${p.scope || 'unknown'}`;
+            const body = [
+              'Webhook payload:',
+              '```json',
+              JSON.stringify(p, null, 2),
+              '```'
+            ].join('\n');
+            const { data: issue } = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              body
+            });
+            core.info(`Created issue #${issue.number}`);
